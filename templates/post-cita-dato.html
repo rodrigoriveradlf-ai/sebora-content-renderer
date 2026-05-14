@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Sebora · post-cita-dato</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sebora-green: #4CAF7B;
+    --sebora-dark: #0F1419;
+    --sebora-cream: #F4EFE6;
+    --sebora-white: #FFFFFF;
+    --sebora-gray: #6B7280;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 1080px;
+    height: 1080px;
+    overflow: hidden;
+  }
+
+  body {
+    background: var(--sebora-dark);
+    color: var(--sebora-white);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: geometricPrecision;
+    display: flex;
+    flex-direction: column;
+    padding: 96px 80px 80px;
+  }
+
+  .pilar-label {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--sebora-green);
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .pilar-label::before {
+    content: "";
+    display: inline-block;
+    width: 36px;
+    height: 3px;
+    background: var(--sebora-green);
+    border-radius: 2px;
+  }
+
+  .hook {
+    font-size: 96px;
+    line-height: 1.02;
+    font-weight: 800;
+    letter-spacing: -3.2px;
+    margin-top: 56px;
+    color: var(--sebora-white);
+  }
+
+  .hook .accent {
+    color: var(--sebora-green);
+  }
+
+  .subtexto {
+    font-size: 36px;
+    line-height: 1.35;
+    font-weight: 500;
+    letter-spacing: -0.6px;
+    color: rgba(255, 255, 255, 0.78);
+    margin-top: 48px;
+    max-width: 880px;
+  }
+
+  .spacer {
+    flex: 1 1 auto;
+  }
+
+  .footer {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+  }
+
+  .disclaimer {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--sebora-gray);
+    max-width: 640px;
+    line-height: 1.4;
+    letter-spacing: -0.1px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .logo-mark {
+    width: 44px;
+    height: 44px;
+  }
+
+  .logo-text {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.8px;
+    color: var(--sebora-white);
+  }
+</style>
+</head>
+<body>
+  <div class="pilar-label">{{pilar_label}}</div>
+
+  <h1 class="hook">{{hook}}</h1>
+
+  <p class="subtexto">{{subtexto}}</p>
+
+  <div class="spacer"></div>
+
+  <div class="footer">
+    <div class="disclaimer">{{disclaimer}}</div>
+    <div class="logo">
+      <svg class="logo-mark" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M24 4 C24 4, 8 22, 8 32 C8 41, 15 44, 24 44 C33 44, 40 41, 40 32 C40 22, 24 4, 24 4 Z" fill="#4CAF7B"/>
+        <circle cx="20" cy="32" r="3.5" fill="#FFFFFF"/>
+      </svg>
+      <span class="logo-text">sebora</span>
+    </div>
+  </div>
+</body>
+</html>

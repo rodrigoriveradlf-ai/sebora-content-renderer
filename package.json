@@ -1,0 +1,19 @@
+{
+  "name": "sebora-content-renderer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "HTTP service that renders Sebora social media assets (PNG/MP4) from HTML templates. Consumed by n8n workflows.",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "puppeteer": "^24.42.0"
+  }
+}
