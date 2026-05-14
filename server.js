@@ -38,16 +38,26 @@ function escapeHtml(value) {
     .replaceAll("'", '&#39;');
 }
 
+function resolveProp(key, props, { escape }) {
+  if (!(key in props)) return '';
+  const value = props[key];
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'object') {
+    throw new Error(`Prop "${key}" must be string or number, got object`);
+  }
+  return escape ? escapeHtml(value) : String(value);
+}
+
 function fillTemplate(html, props) {
-  return html.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, key) => {
-    if (!(key in props)) return '';
-    const value = props[key];
-    if (value === null || value === undefined) return '';
-    if (typeof value === 'object') {
-      throw new Error(`Prop "${key}" must be string or number, got object`);
-    }
-    return escapeHtml(value);
-  });
+  // Triple braces {{{key}}} = HTML raw. Solo para campos donde se permite HTML controlado (ej: <span class="accent">).
+  let result = html.replace(/\{\{\{\s*([a-zA-Z0-9_]+)\s*\}\}\}/g, (_m, key) =>
+    resolveProp(key, props, { escape: false })
+  );
+  // Double braces {{key}} = texto escapado (default seguro).
+  result = result.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_m, key) =>
+    resolveProp(key, props, { escape: true })
+  );
+  return result;
 }
 
 async function loadTemplate(templateId) {
