@@ -3,6 +3,8 @@ import puppeteer from 'puppeteer';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { randomBytes } from 'node:crypto';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import 'dotenv/config';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -10,6 +12,26 @@ const TEMPLATES_DIR = join(__dirname, 'templates');
 
 const PORT = parseInt(process.env.PORT ?? '4123', 10);
 const AUTH_TOKEN = process.env.RENDERER_AUTH_TOKEN;
+
+const R2_BUCKET = process.env.R2_BUCKET;
+const R2_ENDPOINT = process.env.R2_ENDPOINT;
+const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
+const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
+const R2_PUBLIC_URL_BASE = process.env.R2_PUBLIC_URL_BASE;
+
+const r2Configured =
+  R2_BUCKET && R2_ENDPOINT && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY && R2_PUBLIC_URL_BASE;
+
+const r2 = r2Configured
+  ? new S3Client({
+      region: 'auto',
+      endpoint: R2_ENDPOINT,
+      credentials: {
+        accessKeyId: R2_ACCESS_KEY_ID,
+        secretAccessKey: R2_SECRET_ACCESS_KEY,
+      },
+    })
+  : null;
 
 const DEFAULT_VIEWPORTS = {
   post: { width: 1080, height: 1080, deviceScaleFactor: 1 },
@@ -85,44 +107,91 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
 
-app.post('/render-image', async (req, res) => {
-  const { template_id, props = {}, format = 'post', viewport } = req.body ?? {};
-
+async function renderPng({ template_id, props, format, viewport }) {
   if (!template_id) {
-    return res.status(400).json({ error: 'template_id is required' });
+    const err = new Error('template_id is required');
+    err.status = 400;
+    throw err;
   }
-
-  const vp = viewport ?? DEFAULT_VIEWPORTS[format];
+  const vp = viewport ?? DEFAULT_VIEWPORTS[format ?? 'post'];
   if (!vp) {
-    return res.status(400).json({ error: `unknown format: ${format}` });
+    const err = new Error(`unknown format: ${format}`);
+    err.status = 400;
+    throw err;
   }
-
-  let page;
+  const rawHtml = await loadTemplate(template_id);
+  const html = fillTemplate(rawHtml, props ?? {});
+  const browser = await getBrowser();
+  const page = await browser.newPage();
   try {
-    const rawHtml = await loadTemplate(template_id);
-    const html = fillTemplate(rawHtml, props);
-
-    const browser = await getBrowser();
-    page = await browser.newPage();
     await page.setViewport(vp);
     await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30_000 });
     await page.evaluateHandle('document.fonts.ready');
-
     const png = await page.screenshot({
       type: 'png',
       omitBackground: false,
       clip: { x: 0, y: 0, width: vp.width, height: vp.height },
     });
+    return { png, viewport: vp };
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
 
+function buildObjectKey({ key, format }) {
+  if (key) return key;
+  const today = new Date().toISOString().slice(0, 10);
+  const suffix = randomBytes(4).toString('hex');
+  return `posts/${today}-${format ?? 'post'}-${suffix}.png`;
+}
+
+app.post('/render-image', async (req, res) => {
+  try {
+    const { template_id, props, format, viewport } = req.body ?? {};
+    const { png, viewport: vp } = await renderPng({ template_id, props, format, viewport });
     res.set('Content-Type', 'image/png');
     res.set('X-Template-Id', template_id);
     res.set('X-Viewport', `${vp.width}x${vp.height}`);
     res.send(png);
   } catch (err) {
     console.error('[render-image] error:', err);
-    res.status(500).json({ error: 'render_failed', detail: err.message });
-  } finally {
-    if (page) await page.close().catch(() => {});
+    res.status(err.status ?? 500).json({ error: 'render_failed', detail: err.message });
+  }
+});
+
+app.post('/render-and-upload', async (req, res) => {
+  if (!r2Configured) {
+    return res.status(503).json({
+      error: 'r2_not_configured',
+      detail: 'Missing R2_* env vars on renderer service',
+    });
+  }
+  try {
+    const { template_id, props, format, viewport, key: customKey } = req.body ?? {};
+    const { png, viewport: vp } = await renderPng({ template_id, props, format, viewport });
+    const key = buildObjectKey({ key: customKey, format });
+
+    await r2.send(
+      new PutObjectCommand({
+        Bucket: R2_BUCKET,
+        Key: key,
+        Body: png,
+        ContentType: 'image/png',
+        CacheControl: 'public, max-age=31536000, immutable',
+      })
+    );
+
+    const url = `${R2_PUBLIC_URL_BASE.replace(/\/$/, '')}/${key}`;
+    res.json({
+      url,
+      key,
+      bucket: R2_BUCKET,
+      viewport: { width: vp.width, height: vp.height },
+      bytes: png.length,
+    });
+  } catch (err) {
+    console.error('[render-and-upload] error:', err);
+    res.status(err.status ?? 500).json({ error: 'upload_failed', detail: err.message });
   }
 });
 
